@@ -1,0 +1,23 @@
+{
+    "manifest": {
+        "formatVersion": 1,
+        "identifier": "com.mycompany.iptvplus",
+        "version": "1.0.0",
+        "targetDevice": "roku",
+        "vendor": "iptvplus",
+        "homeScreen": {
+            "icon": "icon.png",
+            "title": "IPTV+"
+        },
+        "resources": [
+            {
+                "filename": "main.brs",
+                "type": "script"
+            },
+            {
+                "filename": "icon.png",
+                "type": "icon"
+            }
+        ]
+    }
+}

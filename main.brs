@@ -1,64 +1,109 @@
-playlistUrl = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
-channelList = []
-currentChannelIndex = 0
+'Create an IPTV player and channel list from the playlist URL
+m3u8Url = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
 
-sub init()
-    m.top.backgroundURI = "pkg:/images/rsgde_bg_hd.jpg"
-    m.video = m.top.findNode("video")
-    m.video.observeField("state", "stateChanged")
-    m.guide = m.top.findNode("guide")
-    m.guide.text = "Today's TV Guide: \n\n" + getGuideText()
+'Fetch the playlist from the URL
+urlTransfer = CreateObject("roUrlTransfer")
+urlTransfer.setUrl(m3u8Url)
+playlist = urlTransfer.GetToString()
 
-    playList = createObject("roUrlTransfer")
-    playList.setUrl(playlistUrl)
-    playlistData = playList.GetToString()
-
-    channelList = parseChannels(playlistData)
-    currentChannelIndex = 0
-    stateChanged()
-end
-
-sub stateChanged()
-    if m.video.state = "ready"
-        m.video.stream = createObject("roUrlTransfer")
-        m.video.stream.setUrl(channelList[currentChannelIndex])
-        m.video.control = "play"
+'Parse the playlist into an array of channels
+channelLines = split(playlist, "\n")
+channels = []
+for i = 1 to UBound(channelLines)
+    if channelLines[i][0] = "#" then
+        continue
     end if
-end
+    channels.Push(channelLines[i])
+end for
 
-sub changeChannel(direction)
-    if direction = "next"
-        currentChannelIndex = (currentChannelIndex + 1) mod length(channelList)
-    else
-        currentChannelIndex = (currentChannelIndex - 1 + length(channelList)) mod length(channelList)
-    end if
-    m.video.control = "stop"
-    m.video.stream = createObject("roUrlTransfer")
-    m.video.stream.setUrl(channelList[currentChannelIndex])
-    m.video.control = "play"
-end
-
-sub getGuideText()
-    guideText = "6:00 AM - Morning News\n"
-    guideText = guideText + "7:00 AM - Cartoons\n"
-    guideText = guideText + "9:00 AM - Documentary\n"
-    guideText = guideText + "12:00 PM - Soap Opera\n"
-    guideText = guideText + "1:00 PM - Cooking Show\n"
-    guideText = guideText + "5:00 PM - Sports\n"
-    guideText = guideText + "7:00 PM - Prime-time dramas\n"
-    guideText = guideText + "10:00 PM - Late Night Talk Show\n"
-    return guideText
-end
-
-sub parseChannels(playlistData)
-    channels = split(playlistData, "\n")
-    result = []
-    for each in channels
-        if startsWith(each, "#")
-            continue
-        end if
-        result.push(each)
+'Create a function to display the channel list
+function displayChannelList()
+    'Create a TextScreen to display the channel list
+    text = CreateObject("roTextScreen")
+    text.SetText("Channels:\n\n")
+    for i = 1 to UBound(channels)
+        text.AppendText(i + ". " + channels[i] + "\n")
     end for
-    return result
-end
+    text.Show()
 
+    'Listen for user input to select a channel
+    while true
+        'Get the user input
+        input = wait(0, text.GetUserInput())
+
+        'Check if the user selected a channel
+        if input >= 1 and input <= UBound(channels) then
+            'Play the selected channel
+            text.Close()
+            playChannel(channels[input-1], i-1)
+            return
+        'Check if the user wants to return to the video
+        else if input = "back" then
+            text.Close()
+            return
+        end if
+    end while
+end function
+
+'Create a function to play a channel
+function playChannel(channelUrl, channelIndex)
+    'Create a VideoScreen to play the channel
+    video = CreateObject("roVideoScreen")
+    video.SetContent(channelUrl)
+    video.Show()
+
+    'Listen for user input to access the EPG or return to the channel list
+    while true
+        'Get the user input
+        input = wait(0, video.GetUserInput())
+
+        'Check if the user wants to access the EPG
+        if input = "info" then
+            video.Pause()
+            displayEpg(channelIndex)
+            video.Resume()
+        'Check if the user wants to return to the channel list
+        else if input = "back" then
+            video.Close()
+            displayChannelList()
+            return
+        end if
+    end while
+end function
+
+'Fetch the EPG data from the URL
+urlTransfer = CreateObject("roUrlTransfer")
+urlTransfer.setUrl("http://example.com/epg.json")
+epgJson = urlTransfer.GetToString()
+
+'Parse the EPG data from JSON
+epg = parseJson(epgJson)
+
+'Create a function to display the EPG data
+function displayEpg(channelIndex)
+    'Extract the program information for the selected channel
+    programs = epg.channels[channelIndex].programs
+
+    'Create a TextScreen to display the program information
+    text = CreateObject("roTextScreen")
+    text.SetText("Programs:\n\n")
+    for i = 1 to UBound(programs)
+        text.AppendText(programs[i].title + ": " + programs[i].startTime + " to " + programs[i].endTime + "\n")
+    end for
+    text.Show()
+
+    'Listen for user input to return to the video
+    while true
+        'Get the user input
+        input = wait(0, text.GetUserInput())
+
+        'Check if the user wants to return to the video
+        if input = "back" then
+            text.Close()
+            return
+        end if
+    end while
+end function
+
+'Display the channel list to start
+displayChannelList()
